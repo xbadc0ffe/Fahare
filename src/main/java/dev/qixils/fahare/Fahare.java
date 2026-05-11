@@ -316,7 +316,7 @@ public final class Fahare extends JavaPlugin implements Listener {
         World world = worlds.remove(0);
         String worldName = world.getName();
         Component worldKey = text(worldName);
-        WorldCreator creator = new WorldCreator(worldName, world.getKey());
+        WorldCreator creator = new WorldCreator(world.getKey());
 
         Difficulty difficulty = getNewDifficulty();
         long seed = getNewSeed();
