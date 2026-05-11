@@ -327,10 +327,11 @@ public final class Fahare extends JavaPlugin implements Listener {
                 .seed(seed)
                 .hardcore(getNewHardcore(difficulty));
 
+        Path worldFolder = world.getWorldFolder().toPath();
+
         // unload world
         if (Bukkit.unloadWorld(world, backup)) {
             try {
-                Path worldFolder = worldContainer.resolve(worldName);
                 Component arg = text(worldFolder.toString());
                 if (backupDestination != null) {
                     // Backup world

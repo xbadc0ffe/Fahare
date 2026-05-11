@@ -6,6 +6,10 @@
 
 - `FahareResetEvent` allows developers to perform actions after a reset is finished (@DeltaJordan)
 
+### Fixed
+
+- World resets on Paper 26.1+ now use `World#getWorldFolder` to locate the on-disk world directory instead of resolving against the world container, which previously pointed at the wrong path under the new nested `<root-world>/dimensions/<namespace>/<key>/` storage layout and left players spawning in half-loaded worlds
+
 ## [1.3.1] - 2026-01-27
 
 ### Fixed
