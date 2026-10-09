@@ -2,6 +2,11 @@
 
 ## [unreleased] - XXXX-XX-XX
 
+### Fixed
+
+- Difficulty and hardcore are applied to the regenerated world instead of the unloaded one, and hardcore is set explicitly after the fake overworld loads (from qixils/Fahare#15 by @Michell179)
+- Hardcore hearts render from a player's first join: the spawn location is redirected to the fake overworld before the login packet is built (from qixils/Fahare#15 by @Michell179)
+
 ## [26.3.1] - 2026-10-09
 
 ### Changed

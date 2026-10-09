@@ -4,6 +4,7 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
+import io.papermc.paper.event.player.AsyncPlayerSpawnLocationEvent;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
@@ -98,13 +99,15 @@ public final class Fahare extends JavaPlugin implements Listener {
         Difficulty difficulty = getNewDifficulty();
         long seed = getNewSeed();
         getComponentLogger().info(translatable("fhr.log.overworld-seed", text(seed)));
+        boolean hardcore = getNewHardcore(difficulty);
         WorldCreator creator = new WorldCreator(fakeOverworldKey)
                 .copy(overworld())
                 .seed(seed)
-                .hardcore(getNewHardcore(difficulty));
+                .hardcore(hardcore);
 
         World world = Objects.requireNonNull(creator.createWorld(), "Could not load fake overworld");
         world.setDifficulty(difficulty);
+        world.setHardcore(hardcore);
 
         return world;
     }
@@ -319,13 +322,14 @@ public final class Fahare extends JavaPlugin implements Listener {
         WorldCreator creator = new WorldCreator(world.getKey());
 
         Difficulty difficulty = getNewDifficulty();
+        boolean hardcore = getNewHardcore(difficulty);
         long seed = getNewSeed();
         getComponentLogger().info(translatable("fhr.log.seed", worldKey, text(seed)));
 
         creator
                 .copy(world)
                 .seed(seed)
-                .hardcore(getNewHardcore(difficulty));
+                .hardcore(hardcore);
 
         Path worldFolder = world.getWorldFolder().toPath();
 
@@ -347,7 +351,8 @@ public final class Fahare extends JavaPlugin implements Listener {
                 World newWorld = creator.createWorld();
                 if (newWorld == null) throw new IllegalStateException("World was null");
 
-                world.setDifficulty(difficulty);
+                newWorld.setDifficulty(difficulty);
+                newWorld.setHardcore(hardcore);
 
                 Bukkit.getServer().sendMessage(translatable("fhr.chat.success", worldKey));
             } catch (Exception e) {
@@ -468,6 +473,19 @@ public final class Fahare extends JavaPlugin implements Listener {
             // else just update the world
         else
             to.setWorld(fakeOverworld());
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onAsyncSpawnLocation(AsyncPlayerSpawnLocationEvent event) {
+        // The client decides whether to draw hardcore hearts from the login packet, which is built
+        // from the world the player spawns into. Redirect away from the real overworld before that
+        // packet exists; the PlayerJoinEvent teleport below is too late for a first join.
+        World toWorld = event.getSpawnLocation().getWorld();
+        if (toWorld == null || !toWorld.getKey().equals(REAL_OVERWORLD_KEY)) return;
+
+        World fake = Bukkit.getWorld(fakeOverworldKey);
+        if (fake != null)
+            event.setSpawnLocation(fake.getSpawnLocation());
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
