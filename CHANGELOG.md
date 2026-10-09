@@ -2,6 +2,8 @@
 
 ## [unreleased] - XXXX-XX-XX
 
+## [26.3.1] - 2026-10-09
+
 ### Changed
 
 - World resets locate the on-disk world directory through `World#getWorldFolder` instead of computing `<level-name>/dimensions/<namespace>/<key>/` by hand, so the plugin follows whatever storage layout the server reports (fork)
