@@ -9,8 +9,7 @@ import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.translation.GlobalTranslator;
-import net.kyori.adventure.translation.TranslationRegistry;
-import net.kyori.adventure.util.UTF8ResourceBundleControl;
+import net.kyori.adventure.translation.TranslationStore;
 import org.bukkit.*;
 import org.bukkit.advancement.Advancement;
 import org.bukkit.advancement.AdvancementProgress;
@@ -37,6 +36,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.MessageFormat;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -176,10 +176,10 @@ public final class Fahare extends JavaPlugin implements Listener {
         }
 
         // Register i18n
-        TranslationRegistry registry = TranslationRegistry.create(new NamespacedKey(this, "translations"));
+        TranslationStore.StringBased<MessageFormat> registry = TranslationStore.messageFormat(new NamespacedKey(this, "translations"));
         registry.defaultLocale(Locale.US);
         for (Locale locale : List.of(Locale.US)) { // TODO: reflection
-            ResourceBundle bundle = ResourceBundle.getBundle("Fahare", locale, UTF8ResourceBundleControl.get());
+            ResourceBundle bundle = ResourceBundle.getBundle("Fahare", locale);
             registry.registerAll(locale, bundle, false);
         }
         GlobalTranslator.translator().addSource(registry);
@@ -313,7 +313,7 @@ public final class Fahare extends JavaPlugin implements Listener {
         }
 
         // get world data
-        World world = worlds.remove(0);
+        World world = worlds.removeFirst();
         String worldName = world.getName();
         Component worldKey = text(worldName);
         WorldCreator creator = new WorldCreator(world.getKey());
