@@ -2,6 +2,8 @@
 
 ## [unreleased] - XXXX-XX-XX
 
+## [26.3.2] - 2026-10-09
+
 ### Added
 
 - Backups now include the level's player data (`players/`, or `playerdata/`, `advancements/` and `stats/` on older layouts), flushed and copied right before the reset wipes it (qixils/Fahare#14)
