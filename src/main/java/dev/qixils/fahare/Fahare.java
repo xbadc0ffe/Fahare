@@ -123,6 +123,15 @@ public final class Fahare extends JavaPlugin implements Listener {
 
     @Override
     public void onEnable() {
+        // Register i18n first so every log line below is translatable
+        TranslationStore.StringBased<MessageFormat> registry = TranslationStore.messageFormat(new NamespacedKey(this, "translations"));
+        registry.defaultLocale(Locale.US);
+        for (Locale locale : List.of(Locale.US)) { // TODO: reflection
+            ResourceBundle bundle = ResourceBundle.getBundle("Fahare", locale);
+            registry.registerAll(locale, bundle, false);
+        }
+        GlobalTranslator.translator().addSource(registry);
+
         // Load config
         loadConfig();
         resetIdPath = getDataPath().resolve("current-reset-id.txt");
@@ -174,15 +183,6 @@ public final class Fahare extends JavaPlugin implements Listener {
                 getComponentLogger().warn(translatable("fhr.log.error.properties"), e);
             }
         }
-
-        // Register i18n
-        TranslationStore.StringBased<MessageFormat> registry = TranslationStore.messageFormat(new NamespacedKey(this, "translations"));
-        registry.defaultLocale(Locale.US);
-        for (Locale locale : List.of(Locale.US)) { // TODO: reflection
-            ResourceBundle bundle = ResourceBundle.getBundle("Fahare", locale);
-            registry.registerAll(locale, bundle, false);
-        }
-        GlobalTranslator.translator().addSource(registry);
 
         // Create limbo world
         WorldCreator creator = new WorldCreator(limboWorldKey)
