@@ -71,6 +71,7 @@ public final class Fahare extends JavaPlugin implements Listener {
     private int lives = 1;
     private Difficulty forceDifficulty = null;
     private long forceSeed = 0L;
+    private String levelName = "world";
 
     private static @NotNull World overworld() {
         return Objects.requireNonNull(Bukkit.getWorld(REAL_OVERWORLD_KEY), "Overworld not found");
@@ -166,6 +167,7 @@ public final class Fahare extends JavaPlugin implements Listener {
         if (Files.exists(serverProperties)) {
             try (InputStream contents = Files.newInputStream(serverProperties)) {
                 properties.load(contents);
+                levelName = properties.getProperty("level-name", levelName);
                 try {
                     String levelSeed = properties.getProperty("level-seed", "");
                     forceSeed = Long.parseLong(levelSeed);
@@ -367,30 +369,41 @@ public final class Fahare extends JavaPlugin implements Listener {
         Bukkit.getGlobalRegionScheduler().runDelayed(this, $ -> deleteNextWorld(worlds, backupDestination), 1);
     }
 
+    private void backupPlayerData(Path backupDestination) {
+        // flush every online player (data, stats, advancements) so the copy reflects the moment of the reset
+        Bukkit.savePlayers();
+        Path levelRoot = worldContainer.resolve(levelName);
+        // 26.x keeps everything under players/; older layouts use three sibling folders
+        for (String folder : List.of("players", "playerdata", "advancements", "stats")) {
+            Path source = levelRoot.resolve(folder);
+            if (!Files.isDirectory(source)) continue;
+            Component arg = text(source.toString());
+            try {
+                getComponentLogger().info(translatable("fhr.log.info.backup-players", arg));
+                IOUtils.copyDirectory(source, backupDestination.resolve(folder));
+            } catch (Exception e) {
+                getComponentLogger().warn(translatable("fhr.log.error.backup-players", arg), e);
+            }
+        }
+    }
+
     public synchronized void reset() {
         if (resetting)
             return;
         if (limboWorld == null)
             return;
+        // check if worlds are ticking; nothing below may run twice, so wait before touching anything
+        if (Bukkit.isTickingWorlds()) {
+            Bukkit.getGlobalRegionScheduler().runDelayed(this, $ -> reset(), 1);
+            return;
+        }
+        resetting = true;
         deaths.clear();
 
         // Update and save current reset ID to keep track of players that were offline during the reset
         currentResetId++;
         saveResetId();
 
-        // teleport all players to limbo
-        Location destination = new Location(limboWorld, 0, 100, 0);
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            resetPlayer(player);
-            player.setGameMode(GameMode.SPECTATOR);
-            player.teleport(destination);
-        }
-        // check if worlds are ticking
-        if (Bukkit.isTickingWorlds()) {
-            Bukkit.getGlobalRegionScheduler().runDelayed(this, $ -> reset(), 1);
-            return;
-        }
-        resetting = true;
         // calculate backup folder
         Path backupDestination = null;
         if (backup && backupContainer != null) {
@@ -406,6 +419,18 @@ public final class Fahare extends JavaPlugin implements Listener {
                 getComponentLogger().error(translatable("fhr.log.error.backup-subfolder", text(backupDestination.toString())), e);
                 backupDestination = null;
             }
+        }
+        // back up player data before it is wiped
+        if (backupDestination != null) {
+            backupPlayerData(backupDestination);
+        }
+
+        // teleport all players to limbo
+        Location destination = new Location(limboWorld, 0, 100, 0);
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            resetPlayer(player);
+            player.setGameMode(GameMode.SPECTATOR);
+            player.teleport(destination);
         }
         // unload and delete worlds
         List<World> worlds = Bukkit.getWorlds().stream()
