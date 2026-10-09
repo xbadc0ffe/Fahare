@@ -2,13 +2,19 @@
 
 ## [unreleased] - XXXX-XX-XX
 
+### Changed
+
+- World resets locate the on-disk world directory through `World#getWorldFolder` instead of computing `<level-name>/dimensions/<namespace>/<key>/` by hand, so the plugin follows whatever storage layout the server reports (fork)
+
+## [1.4.0] - 2026-05-31
+
 ### Added
 
 - `FahareResetEvent` allows developers to perform actions after a reset is finished (@DeltaJordan)
 
-### Fixed
+### Changed
 
-- World resets on Paper 26.1+ now use `World#getWorldFolder` to locate the on-disk world directory instead of resolving against the world container, which previously pointed at the wrong path under the new nested `<root-world>/dimensions/<namespace>/<key>/` storage layout and left players spawning in half-loaded worlds
+- Updated to 26.1.x
 
 ## [1.3.1] - 2026-01-27
 
@@ -92,7 +98,8 @@
 - Support for Paper 1.19.3+
 - English translation
 
-[unreleased]: https://github.com/qixils/fahare/compare/v1.3.1...HEAD
+[unreleased]: https://github.com/qixils/fahare/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/qixils/fahare/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/qixils/fahare/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/qixils/fahare/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/qixils/fahare/compare/v1.2.0...v1.2.1
