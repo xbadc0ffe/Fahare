@@ -7,7 +7,7 @@ plugins {
 group = "dev.qixils"
 version = "1.3.2-26.1.0"
 
-val mcVersion = "26.1.2"
+val mcVersion = "26.3"
 val targetJavaVersion = 25
 
 repositories {

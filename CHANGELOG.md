@@ -5,6 +5,7 @@
 ### Changed
 
 - World resets locate the on-disk world directory through `World#getWorldFolder` instead of computing `<level-name>/dimensions/<namespace>/<key>/` by hand, so the plugin follows whatever storage layout the server reports (fork)
+- Built against Paper 26.3 (`api-version` 26.3, Java 25); fork builds are versioned `<mc major>.<mc minor>.<build>`
 
 ## [1.4.0] - 2026-05-31
 
