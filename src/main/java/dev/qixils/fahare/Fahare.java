@@ -1,6 +1,7 @@
 package dev.qixils.fahare;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
@@ -9,20 +10,24 @@ import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.translation.GlobalTranslator;
 import net.kyori.adventure.translation.TranslationStore;
 import org.bukkit.*;
 import org.bukkit.advancement.Advancement;
 import org.bukkit.advancement.AdvancementProgress;
+import org.bukkit.entity.EnderDragon;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityMountEvent;
 import org.bukkit.event.entity.EntityPortalEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerPortalEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
@@ -53,6 +58,9 @@ public final class Fahare extends JavaPlugin implements Listener {
     private static final Random RANDOM = new Random();
     // todo: i18n?
     private final Permission resetPerm = new Permission("fahare.reset", "Whether to allow manually resetting the world", PermissionDefault.OP);
+    private final Permission worldAgePerm = new Permission("fahare.worldage", "Whether to allow editing the world age and the dragon record", PermissionDefault.OP);
+    private final GameOver gameOver = new GameOver(this);
+    private final WorldAge worldAge = new WorldAge(this);
     private final NamespacedKey fakeOverworldKey = new NamespacedKey(this, "overworld");
     private final NamespacedKey limboWorldKey = new NamespacedKey(this, "limbo");
     private final NamespacedKey lastResetIdKey = new NamespacedKey(this, "last_reset_id");
@@ -72,6 +80,8 @@ public final class Fahare extends JavaPlugin implements Listener {
     private Difficulty forceDifficulty = null;
     private long forceSeed = 0L;
     private String levelName = "world";
+    private boolean joinWarning = true;
+    private String joinWarningName = "";
 
     private static @NotNull World overworld() {
         return Objects.requireNonNull(Bukkit.getWorld(REAL_OVERWORLD_KEY), "Overworld not found");
@@ -79,6 +89,14 @@ public final class Fahare extends JavaPlugin implements Listener {
 
     private @NotNull World fakeOverworld() {
         return Objects.requireNonNullElseGet(Bukkit.getWorld(fakeOverworldKey), this::createFakeOverworld);
+    }
+
+    @NotNull NamespacedKey fakeOverworldKey() {
+        return fakeOverworldKey;
+    }
+
+    boolean isResetting() {
+        return resetting;
     }
 
     private long getNewSeed() {
@@ -209,12 +227,48 @@ public final class Fahare extends JavaPlugin implements Listener {
                                         reset();
                                         return Command.SINGLE_SUCCESS;
                                     })
+                            )
+                            .then(Commands.literal("days")
+                                    .requires(Commands.restricted(source -> source.getSender().hasPermission(worldAgePerm)))
+                                    .executes(ctx -> {
+                                        Long record = worldAge.dragonRecord();
+                                        Component recordText = record == null ? translatable("fhr.chat.record-none") : text(record);
+                                        ctx.getSource().getSender().sendMessage(translatable("fhr.chat.days-query", text(worldAge.days()), recordText));
+                                        return Command.SINGLE_SUCCESS;
+                                    })
+                                    .then(Commands.argument("days", IntegerArgumentType.integer(0))
+                                            .executes(ctx -> {
+                                                int days = IntegerArgumentType.getInteger(ctx, "days");
+                                                String key = worldAge.setDays(days) ? "fhr.chat.days-set" : "fhr.chat.days-unavailable";
+                                                ctx.getSource().getSender().sendMessage(translatable(key, text(days)));
+                                                return Command.SINGLE_SUCCESS;
+                                            })
+                                    )
+                            )
+                            .then(Commands.literal("record")
+                                    .requires(Commands.restricted(source -> source.getSender().hasPermission(worldAgePerm)))
+                                    .then(Commands.literal("clear")
+                                            .executes(ctx -> {
+                                                worldAge.setDragonRecord(null);
+                                                ctx.getSource().getSender().sendMessage(translatable("fhr.chat.record-cleared"));
+                                                return Command.SINGLE_SUCCESS;
+                                            })
+                                    )
+                                    .then(Commands.argument("days", IntegerArgumentType.integer(0))
+                                            .executes(ctx -> {
+                                                int days = IntegerArgumentType.getInteger(ctx, "days");
+                                                worldAge.setDragonRecord((long) days);
+                                                ctx.getSource().getSender().sendMessage(translatable("fhr.chat.record-set", text(days)));
+                                                return Command.SINGLE_SUCCESS;
+                                            })
+                                    )
                             );
             commands.registrar().register(resetCommand.build());
         });
 
         // Register events and tasks
         Bukkit.getPluginManager().registerEvents(this, this);
+        worldAge.enable();
         Bukkit.getGlobalRegionScheduler().runAtFixedRate(this, $ -> {
             // Teleport players from real overworld
             Location destination = fakeOverworld.getSpawnLocation();
@@ -232,6 +286,15 @@ public final class Fahare extends JavaPlugin implements Listener {
         autoReset = config.getBoolean("auto-reset", autoReset);
         anyDeath = config.getBoolean("any-death", anyDeath);
         lives = Math.max(1, config.getInt("lives", lives));
+        gameOver.configure(
+                config.getInt("game-over.delay", 30),
+                config.getInt("game-over.countdown", 5),
+                config.getDouble("game-over.explosion-power", 40));
+        worldAge.configure(
+                config.getBoolean("world-age.enabled", true),
+                config.getBoolean("world-age.freeze-when-empty", true));
+        joinWarning = config.getBoolean("join-warning.enabled", joinWarning);
+        joinWarningName = config.getString("join-warning.name", joinWarningName);
     }
 
     public int getDeathsFor(UUID player) {
@@ -301,6 +364,8 @@ public final class Fahare extends JavaPlugin implements Listener {
                 player.teleport(spawn);
             }
 
+            worldAge.onReset(overworld);
+
             try {
                 new FahareResetEvent(overworld).callEvent();
             } catch (Exception e) {
@@ -308,6 +373,7 @@ public final class Fahare extends JavaPlugin implements Listener {
             }
 
             resetting = false;
+            gameOver.onResetComplete();
             return;
         }
 
@@ -399,6 +465,7 @@ public final class Fahare extends JavaPlugin implements Listener {
         }
         resetting = true;
         deaths.clear();
+        gameOver.cancel();
 
         // Update and save current reset ID to keep track of players that were offline during the reset
         currentResetId++;
@@ -440,10 +507,14 @@ public final class Fahare extends JavaPlugin implements Listener {
     }
 
     public void resetCheck(boolean death) {
+        resetCheck(death, null);
+    }
+
+    private void resetCheck(boolean death, @Nullable Player victim) {
         if (!autoReset)
             return;
         if (anyDeath && death) {
-            reset();
+            gameOver.begin(victim);
             return;
         }
         Collection<? extends Player> players = Bukkit.getOnlinePlayers();
@@ -453,20 +524,37 @@ public final class Fahare extends JavaPlugin implements Listener {
             if (isAlive(player.getUniqueId()))
                 return;
         }
-        reset();
+        gameOver.begin(victim);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
+        gameOver.recordDeath(player);
         addDeathTo(player.getUniqueId());
         if (isAlive(player.getUniqueId()))
             return;
         Bukkit.getRegionScheduler().runDelayed(this, player.getLocation(), $ -> {
             player.setGameMode(GameMode.SPECTATOR);
             player.spigot().respawn();
-            resetCheck(true);
+            resetCheck(true, player);
         }, 1);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onEntityDeath(EntityDeathEvent event) {
+        if (event.getEntity() instanceof EnderDragon)
+            worldAge.onDragonDeath();
+    }
+
+    private void sendJoinWarning(Player player) {
+        Component rule = translatable("fhr.chat.join-warning.rule", NamedTextColor.DARK_RED).decorate(TextDecoration.STRIKETHROUGH);
+        Component title = translatable("fhr.chat.join-warning.title", NamedTextColor.RED, text(joinWarningName)).decorate(TextDecoration.BOLD);
+        Component word = translatable("fhr.chat.join-warning.hardcore-word", NamedTextColor.RED);
+        Component hardcore = translatable("fhr.chat.join-warning.hardcore", NamedTextColor.GRAY, word);
+        Component reset = translatable("fhr.chat.join-warning.reset", NamedTextColor.GRAY);
+        for (Component line : List.of(rule, title, rule, hardcore, reset, rule))
+            player.sendMessage(line);
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
@@ -517,6 +605,19 @@ public final class Fahare extends JavaPlugin implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
 
+        if (joinWarning)
+            player.getScheduler().runDelayed(this, $ -> sendJoinWarning(player), null, 20L);
+        worldAge.onJoin(player);
+
+        if (resetting) {
+            // The worlds are being regenerated right now: park the player in limbo like everyone else
+            // and let the end of the reset move them into the new world
+            resetPlayer(player);
+            player.setGameMode(GameMode.SPECTATOR);
+            player.teleport(new Location(limboWorld, 0, 100, 0));
+            return;
+        }
+
         // Check if player missed a reset
         int playerLastReset = getPlayerLastResetId(player);
         if (playerLastReset < currentResetId) {
@@ -534,7 +635,16 @@ public final class Fahare extends JavaPlugin implements Listener {
         } else if (player.getWorld().getKey().equals(REAL_OVERWORLD_KEY)) {
             // Normal case: redirect from real overworld to fake overworld
             player.teleport(fakeOverworld().getSpawnLocation());
+        } else if (player.getWorld().getKey().equals(limboWorldKey)) {
+            // Logged out in limbo during a reset that has since finished
+            player.setGameMode(GameMode.SURVIVAL);
+            player.teleport(fakeOverworld().getSpawnLocation());
         }
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        worldAge.onQuit(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
@@ -549,6 +659,15 @@ public final class Fahare extends JavaPlugin implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerRespawn(PlayerRespawnEvent event) {
+        Player player = event.getPlayer();
+        if (autoReset && gameOver.isActive() && (gameOver.isPending() || isDead(player.getUniqueId()))) {
+            // Everyone spectates their own crater until the reset
+            Location spot = gameOver.deathSpot(player);
+            if (spot != null && spot.getWorld() != null) {
+                event.setRespawnLocation(spot);
+                return;
+            }
+        }
         Location destination = event.getRespawnLocation();
         if (destination.getWorld().getKey().equals(REAL_OVERWORLD_KEY))
             event.setRespawnLocation(fakeOverworld().getSpawnLocation());

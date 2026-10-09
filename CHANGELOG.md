@@ -2,6 +2,16 @@
 
 ## [unreleased] - XXXX-XX-XX
 
+### Added
+
+- Game over sequence (fork): the fatal death no longer resets the world in the same tick. Everyone is told who died (chat, title and a thunder clap), an explosion goes off at every player (`game-over.explosion-power`, default 40), survivors are killed so that everyone spectates their own crater, an on-screen countdown runs for the last `game-over.countdown` seconds (default 5) and the reset starts after `game-over.delay` seconds (default 30). A delay and a power of 0 restore the immediate reset.
+- World age boss bar and dragon record (fork, `world-age.enabled`): the bar shows the days spent in the current world, read from the play world's clock (sleeping through a night counts as a day), with the time of day as its progress; the clock pauses while the server is empty (`world-age.freeze-when-empty`). Killing the ender dragon records the fewest days ever needed in `plugins/Fahare/world-age.yml`, which survives resets. A record left by the Skript this replaces (`plugins/Skript/variables.csv`) is imported once and the Skript's vanilla boss bar is removed. `/fahare days` shows both; `/fahare days <n>` and `/fahare record <n>|clear` (permission `fahare.worldage`) adjust them.
+- Hardcore warning sent a second after joining (fork, `join-warning.enabled`, naming the server from `join-warning.name`).
+
+### Fixed
+
+- A player who logs in while the worlds are being regenerated is parked in limbo and moved into the new world with everyone else, instead of possibly recreating the play world mid-reset; a player who logged out in limbo is moved to the play world spawn on their next join.
+
 ## [26.3.2] - 2026-10-09
 
 ### Added

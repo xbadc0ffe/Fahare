@@ -13,3 +13,28 @@ any-death: false
 
 # How many lives a player should have before they are considered dead.
 lives: 1
+
+# What happens between the fatal death and the reset.
+game-over:
+  # Seconds to wait before the worlds are regenerated. 0 resets immediately.
+  delay: 30
+  # Seconds of on-screen countdown right before the reset (at most `delay`). 0 disables it.
+  countdown: 5
+  # Power of the explosion set off at every player when the game ends (a powered creeper is 40).
+  # 0 disables it. Players who survive it are killed anyway so that everyone spectates their crater.
+  explosion-power: 40
+
+# A boss bar with the days spent in the current world and the best (fewest days) dragon kill.
+# One day passes per dawn, read from the play world's clock, so sleeping through a night counts.
+# The record is kept in plugins/Fahare/world-age.yml and survives resets.
+# `/fahare days` shows both; `/fahare days <n>` and `/fahare record <n>|clear` adjust them.
+world-age:
+  enabled: true
+  # Pause the day/night cycle of the play world while nobody is online.
+  freeze-when-empty: true
+
+# A hardcore warning sent to players a second after they join.
+join-warning:
+  enabled: true
+  # Shown in the warning as "YOU ARE IN <name>".
+  name: "THIS WORLD"
