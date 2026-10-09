@@ -2,6 +2,8 @@
 
 ## [unreleased] - XXXX-XX-XX
 
+## [26.3.3] - 2026-10-09
+
 ### Added
 
 - Game over sequence (fork): the fatal death no longer resets the world in the same tick. Everyone is told who died (chat, title and a thunder clap), an explosion goes off at every player (`game-over.explosion-power`, default 40), survivors are killed so that everyone spectates their own crater, an on-screen countdown runs for the last `game-over.countdown` seconds (default 5) and the reset starts after `game-over.delay` seconds (default 30). A delay and a power of 0 restore the immediate reset.
