@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.List;
 
 import static net.kyori.adventure.text.Component.text;
 import static net.kyori.adventure.text.Component.translatable;
@@ -38,7 +39,6 @@ final class WorldAge {
     private final BossBar bar = BossBar.bossBar(Component.empty(), 0f, BossBar.Color.YELLOW, BossBar.Overlay.PROGRESS);
     private @Nullable Path dataFile;
     private @Nullable Long dragonRecord;
-    private @Nullable Boolean frozen;
     // config
     private boolean enabled = true;
     private boolean freezeWhenEmpty = true;
@@ -103,11 +103,13 @@ final class WorldAge {
     private void applyFreeze(World world) {
         if (!freezeWhenEmpty)
             return;
-        boolean empty = Bukkit.getOnlinePlayers().isEmpty();
-        if (frozen != null && frozen == empty)
-            return;
-        world.setGameRule(GameRules.ADVANCE_TIME, !empty);
-        frozen = empty;
+        boolean advance = !Bukkit.getOnlinePlayers().isEmpty();
+        // with Paper's time.affects-all-worlds there is one clock for the whole server and it follows
+        // the real overworld's rule, so the play world's rule alone is not enough
+        for (World target : List.of(world, Fahare.overworld())) {
+            if (!Boolean.valueOf(advance).equals(target.getGameRuleValue(GameRules.ADVANCE_TIME)))
+                target.setGameRule(GameRules.ADVANCE_TIME, advance);
+        }
     }
 
     void onJoin(Player player) {
@@ -126,7 +128,6 @@ final class WorldAge {
         if (!enabled)
             return;
         newWorld.setFullTime(0);
-        frozen = null;
         update();
     }
 

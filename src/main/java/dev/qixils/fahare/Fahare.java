@@ -83,7 +83,7 @@ public final class Fahare extends JavaPlugin implements Listener {
     private boolean joinWarning = true;
     private String joinWarningName = "";
 
-    private static @NotNull World overworld() {
+    static @NotNull World overworld() {
         return Objects.requireNonNull(Bukkit.getWorld(REAL_OVERWORLD_KEY), "Overworld not found");
     }
 
