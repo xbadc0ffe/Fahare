@@ -2,6 +2,8 @@
 
 ## [unreleased] - XXXX-XX-XX
 
+## [26.3.4] - 2026-10-10
+
 ### Fixed
 
 - World age (fork): time stayed frozen with players online on servers running Paper's `time.affects-all-worlds: true`, where the single server clock follows the real overworld's `advance_time` rule and ignored the play world's. The rule is now kept in step on both worlds and re-checked every second instead of trusting a cached state.
